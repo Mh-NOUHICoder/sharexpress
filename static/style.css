@@ -1,0 +1,115 @@
+/* Custom styles for ShareXpress */
+.min-vh-50 {
+    min-height: 50vh;
+}
+
+.feature-icon {
+    transition: transform 0.3s ease;
+}
+
+.feature-icon:hover {
+    transform: scale(1.1);
+}
+
+.card {
+    border: none;
+    border-radius: 15px;
+}
+
+.card-header {
+    border-radius: 15px 15px 0 0 !important;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+}
+
+/* Custom button styles */
+.btn {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Table styles */
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #6c757d;
+}
+
+/* Alert customization */
+.alert {
+    border-radius: 10px;
+    border: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2.5rem;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+}
+
+/* Add to your existing style.css */
+.bi.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Toast styles */
+.toast-container {
+    z-index: 9999;
+}
+
+.toast {
+    backdrop-filter: blur(10px);
+}
+
+/* Smooth transitions */
+.btn, .form-control, .toast {
+    transition: all 0.15s ease-in-out;
+}
+
+/* File upload hover effects */
+.form-control[type="file"]:hover {
+    border-color: #86b7fe;
+}
+
+/* Copy button hover effects */
+.copy-link:hover {
+    transform: translateY(-1px);
+}
+
+/* Delete button hover effects */
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+    transform: scale(1.05);
+}
+
+/* Loading animation for delete */
+.bi.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Button group spacing */
+.btn-group .btn {
+    margin: 0 2px;
+}

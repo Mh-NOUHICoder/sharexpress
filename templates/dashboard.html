@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Upload Section with ID for anchoring -->
+    <div id="upload" class="card shadow mb-4">  <!-- ← ADD THIS SECTION -->
+        <div class="card-header bg-info text-white">
+            <h5 class="card-title mb-0"><i class="bi bi-cloud-upload me-2"></i>Upload a File</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">  <!-- ← Add this -->
+                <div class="col-md-8">
+                    <label for="file" class="form-label">Choose file</label>
+                    <input class="form-control" type="file" name="file" id="file" required>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-info w-100">
+                        <i class="bi bi-upload me-2"></i>Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h4 mb-0"><i class="bi bi-files me-2"></i>Your Files</h2>
+        <span class="badge bg-primary fs-6">{{ files|length }} file{{ '' if files|length == 1 else 's' }}</span>
+    </div>
+
+    {% if files %}
+    <!-- Files Table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Filename</th>
+                            <th>Upload Date</th>
+                            <th>Download Link</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for file in files %}
+                        <tr class="file-row">
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-file-earmark-text me-2 text-muted"></i>
+                                    <span class="file-name">{{ file.original_filename }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ file.upload_date.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </td>
+                            <td>
+                                <div class="input-group input-group-sm" style="max-width: 300px;">
+                                    <input type="text" class="form-control border-end-0 text-black"
+                                           value="{{ url_for('download_file', download_code=file.download_code, _external=True) }}"
+                                           readonly id="link-{{ file.id }}">
+                                    <button class="btn btn-outline-secondary border copy-link"
+                                            data-target="link-{{ file.id }}"
+                                            type="button">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('download_file', download_code=file.download_code) }}"
+                                       class="btn btn-success"
+                                       download
+                                       title="Download file">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                    <button class="btn btn-outline-primary copy-link"
+                                            data-target="link-{{ file.id }}"
+                                            title="Copy link">
+                                        <i class="bi bi-link-45deg"></i>
+                                    </button>
+                                    <button class="btn btn-outline-danger delete-file"
+                                            data-file-id="{{ file.id }}"
+                                            data-filename="{{ file.original_filename }}"
+                                            title="Delete file">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="empty-state-icon mb-3">
+            <i class="bi bi-cloud-arrow-up display-1 text-muted"></i>
+        </div>
+        <h4 class="text-muted mb-2">No files yet</h4>
+        <p class="text-muted mb-4">Upload your first file to get started</p>
+        <div class="upload-hint text-black">
+            <i class="bi bi-arrow-up-circle me-1"></i>
+            Use the upload form above to add your first file
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.file-row:hover {
+    background-color: #f8f9fa;
+    transition: background-color 0.2s ease;
+}
+
+.file-name {
+    font-weight: 500;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.empty-state-icon {
+    opacity: 0.6;
+}
+
+.upload-hint {
+    background-color: #e9ecef;
+    padding: 10px 15px;
+    border-radius: 8px;
+    display: inline-block;
+    font-size: 0.9rem;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.input-group .form-control:read-only {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.input-group .btn {
+    border-left: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .file-name {
+        max-width: 120px;
+    }
+
+    .input-group {
+        max-width: 200px !important;
+    }
+
+    .btn-group {
+        flex-direction: column;
+    }
+}
+</style>
+{% endblock %}
