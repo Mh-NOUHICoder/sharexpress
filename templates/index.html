@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row align-items-center min-vh-50 py-5">
+    <div class="col-lg-6">
+        <h1 class="display-4 fw-bold mb-4">
+            Share Files <span class="text-primary">Instantly</span>
+        </h1>
+        <p class="lead mb-4">
+            ShareXpress is your simple and secure platform for uploading and sharing files
+            with anyone, anywhere. Access your files through our web interface or command-line tool.
+        </p>
+        <div class="d-grid gap-2 d-md-flex">
+            {% if session.user_id %}
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-4">
+                <i class="bi bi-speedometer2 me-2"></i>Go to Dashboard
+            </a>
+            {% else %}
+            <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                <i class="bi bi-person-plus me-2"></i>Get Started
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary btn-lg px-4">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Login
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6 text-center">
+        <img src="https://cdn-icons-png.flaticon.com/512/1055/1055666.png"
+             alt="File Sharing" class="img-fluid" style="max-height: 300px;">
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4 text-center mb-4">
+        <div class="feature-icon bg-primary bg-gradient p-3 rounded-circle d-inline-block mb-3">
+            <i class="bi bi-cloud-upload-fill text-white fs-1"></i>
+        </div>
+        <h3>Easy Upload</h3>
+        <p>Upload files through our web interface or command-line tool with ease.</p>
+    </div>
+    <div class="col-md-4 text-center mb-4">
+        <div class="feature-icon bg-success bg-gradient p-3 rounded-circle d-inline-block mb-3">
+            <i class="bi bi-share-fill text-white fs-1"></i>
+        </div>
+        <h3>Instant Sharing</h3>
+        <p>Generate shareable links instantly and share your files with anyone.</p>
+    </div>
+    <div class="col-md-4 text-center mb-4">
+        <div class="feature-icon bg-info bg-gradient p-3 rounded-circle d-inline-block mb-3">
+            <i class="bi bi-safe-fill text-white fs-1"></i>
+        </div>
+        <h3>Secure</h3>
+        <p>Your files are stored securely with user authentication and privacy protection.</p>
+    </div>
+</div>
+{% endblock %}
