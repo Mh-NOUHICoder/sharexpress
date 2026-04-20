@@ -8,18 +8,40 @@
             <h5 class="card-title mb-0"><i class="bi bi-cloud-upload me-2"></i>Upload a File</h5>
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">  <!-- ← Add this -->
-                <div class="col-md-8">
-                    <label for="file" class="form-label">Choose file</label>
-                    <input class="form-control" type="file" name="file" id="file" required>
+            <div class="upload-options mb-3">
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check" name="uploadType" id="typeFile" checked>
+                    <label class="btn btn-outline-info" for="typeFile"><i class="bi bi-file-earmark me-2"></i>Single File</label>
+
+                    <input type="radio" class="btn-check" name="uploadType" id="typeFolder">
+                    <label class="btn btn-outline-info" for="typeFolder"><i class="bi bi-folder me-2"></i>Folder (Auto-Zip)</label>
                 </div>
+            </div>
+
+            <form id="uploadForm" method="POST" action="{{ url_for('upload_file') }}" enctype="multipart/form-data" class="row g-3 align-items-end">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="col-md-8">
+                    <div id="fileInputContainer">
+                        <label for="file" class="form-label">Choose file</label>
+                        <input class="form-control" type="file" name="file" id="file" required>
+                    </div>
+                </div>
+
                 <div class="col-md-4">
-                    <button type="submit" class="btn btn-info w-100">
+                    <button type="submit" id="uploadBtn" class="btn btn-info w-100">
                         <i class="bi bi-upload me-2"></i>Upload
                     </button>
                 </div>
+
+                <div id="compressionProgress" class="col-12 d-none">
+                    <div class="progress mt-2" style="height: 10px;">
+                        <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small id="progressText" class="text-muted text-center d-block mt-1">Preparing files...</small>
+                </div>
             </form>
+
         </div>
     </div>
 

@@ -31,6 +31,15 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 # ── Upload folder: must be writable; /tmp/uploads on Vercel ──
 app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
+app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_FILE_SIZE', 104857600))  # Default 100MB
+
+# ── Allowed extensions ──
+ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'txt,pdf,png,jpg,jpeg,gif,doc,docx,zip,rar,7z,tar,gz').split(','))
+
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 
 # Now try to import dotenv (but make it optional)
@@ -218,6 +227,9 @@ def api_upload():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
 
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'File type not allowed'}), 400
+
         # Generate unique filenames and codes
         original_filename = secure_filename(file.filename)
         file_extension = os.path.splitext(original_filename)[1]
@@ -291,6 +303,10 @@ def upload_file():
         return redirect(url_for('dashboard'))
 
     if file:
+        if not allowed_file(file.filename):
+            flash(f'File type not allowed! Allowed types: {", ".join(ALLOWED_EXTENSIONS)}', 'error')
+            return redirect(url_for('dashboard'))
+
         try:
             # Generate unique filenames and codes
             original_filename = secure_filename(file.filename)

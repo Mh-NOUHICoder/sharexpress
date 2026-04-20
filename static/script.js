@@ -70,29 +70,125 @@ function initializeCopyButtons() {
 }
 
 function initializeFileUpload() {
-    const fileInput = document.querySelector('input[type="file"]');
-    const uploadForm = document.querySelector('form[enctype="multipart/form-data"]');
+    const fileInput = document.getElementById('file');
+    const uploadForm = document.getElementById('uploadForm');
+    const typeFile = document.getElementById('typeFile');
+    const typeFolder = document.getElementById('typeFolder');
+    const inputLabel = document.querySelector('label[for="file"]');
+    const progressContainer = document.getElementById('compressionProgress');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
 
-    if (fileInput && uploadForm) {
-        // Show file name when selected
-        fileInput.addEventListener('change', function() {
-            const fileName = this.files[0]?.name;
-            if (fileName) {
-                // You could add a file name display here
-                console.log('File selected:', fileName);
+    if (!fileInput || !uploadForm) return;
+
+    // Toggle between File and Folder mode
+    const updateMode = () => {
+        if (typeFolder.checked) {
+            fileInput.setAttribute('webkitdirectory', '');
+            fileInput.setAttribute('directory', '');
+            fileInput.multiple = true;
+            inputLabel.textContent = 'Choose folder';
+        } else {
+            fileInput.removeAttribute('webkitdirectory');
+            fileInput.removeAttribute('directory');
+            fileInput.multiple = false;
+            inputLabel.textContent = 'Choose file';
+        }
+        fileInput.value = ''; // Clear selection
+    };
+
+    if (typeFile) typeFile.addEventListener('change', updateMode);
+    if (typeFolder) typeFolder.addEventListener('change', updateMode);
+
+    // Form submission
+    uploadForm.addEventListener('submit', async function(e) {
+        if (typeFolder && typeFolder.checked && fileInput.files.length > 0) {
+            e.preventDefault(); // Stop normal submission
+            
+            const files = fileInput.files;
+            if (files.length === 0) return;
+
+            const submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="bi bi-clock-history spin"></i> Zipping...';
+            
+            progressContainer.classList.remove('d-none');
+            
+            try {
+                const zip = new JSZip();
+                const folderName = files[0].webkitRelativePath.split('/')[0] || 'folder';
+                
+                // Add files to zip
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    const path = file.webkitRelativePath || file.name;
+                    zip.file(path, file);
+                    
+                    // Update progress
+                    const percent = Math.round((i / files.length) * 100);
+                    progressBar.style.width = percent + '%';
+                    progressText.textContent = `Compressing: ${path.substring(0, 30)}...`;
+                }
+
+                progressText.textContent = 'Generating zip file (please wait)...';
+                progressBar.classList.add('bg-success');
+                
+                const content = await zip.generateAsync({type: "blob"}, (metadata) => {
+                    if (metadata.percent) {
+                        progressBar.style.width = metadata.percent + '%';
+                    }
+                });
+
+                // Create a new FormData and append the zip
+                const formData = new FormData();
+                formData.append('file', content, `${folderName}.zip`);
+                
+                // Add CSRF token
+                const csrfToken = document.querySelector('input[name="csrf_token"]')?.value;
+                if (csrfToken) formData.append('csrf_token', csrfToken);
+
+                progressText.textContent = 'Uploading zip...';
+                progressBar.classList.remove('bg-success');
+                progressBar.classList.add('bg-primary');
+
+                // Perform the upload via fetch
+                const response = await fetch(uploadForm.action, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const error = await response.text();
+                    showToast('Upload failed: ' + (error || 'Server error'), 'error');
+                    resetUploadUI(submitButton, progressContainer);
+                }
+
+            } catch (err) {
+                console.error('Zipping error:', err);
+                showToast('Error compressing folder: ' + err.message, 'error');
+                resetUploadUI(submitButton, progressContainer);
             }
-        });
-
-        // Add loading state to upload button
-        uploadForm.addEventListener('submit', function() {
+        } else {
+            // Normal file upload
             const submitButton = this.querySelector('button[type="submit"]');
             if (submitButton) {
                 submitButton.innerHTML = '<i class="bi bi-arrow-clockwise spin"></i> Uploading...';
                 submitButton.disabled = true;
             }
-        });
-    }
+        }
+    });
 }
+
+function resetUploadUI(button, progress) {
+    button.disabled = false;
+    button.innerHTML = '<i class="bi bi-upload me-2"></i>Upload';
+    progress.classList.add('d-none');
+}
+
 
 function initializeToasts() {
     // Create toast container if it doesn't exist
