@@ -6,7 +6,6 @@ import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf.csrf import CSRFProtect, CSRFError
 
-<<<<<<< HEAD
 # ── Vercel: /tmp is the only writable directory in the serverless runtime ──
 os.makedirs("/tmp", exist_ok=True)
 os.makedirs("/tmp/uploads", exist_ok=True)
@@ -32,16 +31,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 
 # ── Upload folder: must be writable; /tmp/uploads on Vercel ──
 app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
-=======
-# Create app first
-app = Flask(__name__)
 
-# Configure app BEFORE importing dotenv or doing anything else
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///database.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads'  # ← This must come FIRST!
->>>>>>> 5dedea9936bf3cd72f5c44f2d1f36ad00a819e39
 
 # Now try to import dotenv (but make it optional)
 try:
@@ -58,7 +48,6 @@ db.init_app(app)
 # Get base URL (after potential dotenv load)
 BASE_URL = os.environ.get('BASE_URL', 'http://localhost:8080')
 
-<<<<<<< HEAD
 # Create tables and ensure upload folder exists
 with app.app_context():
     db.create_all()
@@ -66,14 +55,7 @@ with app.app_context():
     print("✅ Database and tables created successfully!")
     print(f"   DB  → {app.config['SQLALCHEMY_DATABASE_URI']}")
     print(f"   Uploads → {app.config['UPLOAD_FOLDER']}")
-=======
-# Create tables and upload folder
-with app.app_context():
-    db.create_all()
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
-    print("✅ Database and tables created successfully!")
->>>>>>> 5dedea9936bf3cd72f5c44f2d1f36ad00a819e39
+
 
 @app.route('/')
 def index():
