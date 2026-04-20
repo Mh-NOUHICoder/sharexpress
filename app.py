@@ -2,25 +2,66 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, send_file, abort, session, jsonify, flash
 from models import db, User, File
 from werkzeug.utils import secure_filename
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 import uuid
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_wtf.csrf import CSRFProtect, CSRFError
 
+# Now try to import dotenv (but make it optional)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("[+] Environment variables loaded from .env file")
+except ImportError:
+    print("[!] python-dotenv not installed, using default configuration")
+
 # ── Vercel: /tmp is the only writable directory in the serverless runtime ──
-os.makedirs("/tmp", exist_ok=True)
-os.makedirs("/tmp/uploads", exist_ok=True)
+temp_dir = os.path.abspath("/tmp")
+os.makedirs(temp_dir, exist_ok=True)
+os.makedirs(os.path.join(temp_dir, "uploads"), exist_ok=True)
 
 # Create app with /tmp as the instance path so Flask never touches /var/task/instance
-app = Flask(__name__, instance_path="/tmp")
+app = Flask(__name__, instance_path=temp_dir)
 
-# Configure app BEFORE importing dotenv or doing anything else
+# Configure app
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+app.config['SECURITY_PASSWORD_SALT'] = os.environ.get('SECURITY_PASSWORD_SALT', 'my_precious_salt')
+
+# Flask-Mail configuration
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'
+app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'False').lower() == 'true'
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_DEFAULT_SENDER', 'notifications@sharexpress.com')
+
+mail = Mail(app)
+ts = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+def send_email(subject, recipients, html_template, **template_kwargs):
+    """Helper function to send emails using Flask-Mail."""
+    try:
+        html = render_template(html_template, **template_kwargs)
+        msg = Message(subject, recipients=recipients, html=html)
+        mail.send(msg)
+        return True
+    except Exception as e:
+        import traceback
+        print(f"\n[!] MAIL ERROR: {e}")
+        print(traceback.format_exc())
+        # In development/local mode, we might want to still provide the URL for testing
+        if 'verification_url' in template_kwargs:
+            print(f"DEBUG: Verification Link -> {template_kwargs['verification_url']}")
+        if 'reset_url' in template_kwargs:
+            print(f"DEBUG: Password Reset Link -> {template_kwargs['reset_url']}")
+        return False
 
 # ── Database: use DATABASE_URL (PostgreSQL on production) or SQLite in /tmp ──
-# NOTE: four slashes (sqlite:////tmp/...) = absolute path required for /tmp
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     'DATABASE_URL',
-    'sqlite:////tmp/database.db'
+    'sqlite:///database.db'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -30,7 +71,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 # ── Upload folder: must be writable; /tmp/uploads on Vercel ──
-app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', '/tmp/uploads')
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', os.path.join(temp_dir, "uploads"))
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_FILE_SIZE', 104857600))  # Default 100MB
 
 # ── Allowed extensions ──
@@ -39,16 +80,6 @@ ALLOWED_EXTENSIONS = set(os.getenv('ALLOWED_EXTENSIONS', 'txt,pdf,png,jpg,jpeg,g
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-
-
-# Now try to import dotenv (but make it optional)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-    print("✅ Environment variables loaded from .env file")
-except ImportError:
-    print("⚠️ python-dotenv not installed, using default configuration")
 
 # Now initialize other components
 csrf = CSRFProtect(app)
@@ -61,9 +92,9 @@ BASE_URL = os.environ.get('BASE_URL', 'http://localhost:8080')
 with app.app_context():
     db.create_all()
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    print("✅ Database and tables created successfully!")
-    print(f"   DB  → {app.config['SQLALCHEMY_DATABASE_URI']}")
-    print(f"   Uploads → {app.config['UPLOAD_FOLDER']}")
+    print("[+] Database and tables created successfully!")
+    print(f"   DB  -> {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"   Uploads -> {app.config['UPLOAD_FOLDER']}")
 
 
 @app.route('/')
@@ -76,74 +107,228 @@ def register():
     if request.method == 'POST':
         try:
             username = request.form.get('username')
+            email = request.form.get('email')
             password = request.form.get('password')
             confirmation = request.form.get('confirmation')
 
             # Validate inputs
-            if not username:
-                flash('Username is required!', 'error')
-                return render_template('register.html')
-
-            if not password:
-                flash('Password is required!', 'error')
+            if not username or not email or not password:
+                flash('All fields are required!', 'error')
                 return render_template('register.html')
 
             if password != confirmation:
                 flash('Passwords do not match!', 'error')
                 return render_template('register.html')
 
-            # Check if username already exists
-            existing_user = User.query.filter_by(username=username).first()
-            if existing_user:
+            # Check if username or email already exists
+            user_by_username = User.query.filter_by(username=username).first()
+            if user_by_username:
                 flash('Username already exists!', 'error')
                 return render_template('register.html')
+            
+            existing_user = User.query.filter_by(email=email).first()
+            if existing_user:
+                if not existing_user.is_verified:
+                    # Resend verification if already registered but not verified
+                    token = ts.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
+                    verification_url = url_for('verify_email', token=token, _external=True)
+                    
+                    send_email(
+                        "Please confirm your email - ShareXpress",
+                        [email],
+                        'email/verify_email.html',
+                        verification_url=verification_url,
+                        username=existing_user.username
+                    )
+                    flash('This email is already registered but not verified. A new verification link has been sent.', 'info')
+                    return redirect(url_for('login'))
+                else:
+                    flash('Email already exists! Please login.', 'error')
+                    return render_template('register.html')
 
-            # Create new user
-            new_user = User(username=username)
+            # Create new user (unverified by default)
+            new_user = User(username=username, email=email)
             new_user.set_password(password)
 
             db.session.add(new_user)
-            db.session.commit()  # Commit to get the user ID
+            db.session.commit()
 
-            # NOW set the session after successful commit
-            session['user_id'] = new_user.id
-            session['username'] = new_user.username
+            # Send verification email
+            token = ts.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
+            verification_url = url_for('verify_email', token=token, _external=True)
+            
+            email_sent = send_email(
+                "Please confirm your email - ShareXpress",
+                [email],
+                'email/verify_email.html',
+                verification_url=verification_url,
+                username=username
+            )
 
-            flash('Registration successful! Welcome to ShareXpress.', 'success')
-            return redirect(url_for('dashboard') + '#upload')  # ← CHANGED: Go to upload section
+            if email_sent:
+                flash('A confirmation email has been sent to your email address. Please check your inbox.', 'info')
+            else:
+                flash('Account created, but we couldn\'t send the verification email. Link printed to console.', 'warning')
+                
+            return redirect(url_for('login'))
 
         except Exception as e:
-            db.session.rollback()  # Important: rollback on error
+            db.session.rollback()
             print(f"Registration error: {str(e)}")
-            flash('Registration failed due to a server error. Please try again.', 'error')
+            flash('Registration failed. Please ensure your email is correct.', 'error')
             return render_template('register.html')
 
     return render_template('register.html')
 
-# Login Route - redirect to dashboard#upload section
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    try:
+        email = ts.loads(token, salt=app.config['SECURITY_PASSWORD_SALT'], max_age=86400) # 24 hours
+    except:
+        flash('The verification link is invalid or has expired.', 'error')
+        return redirect(url_for('login'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+    if user.is_verified:
+        flash('Account already verified. Please login.', 'info')
+    else:
+        user.is_verified = True
+        db.session.commit()
+        
+        # Send welcome email
+        send_email(
+            "Welcome to ShareXpress! Verification Successful",
+            [user.email],
+            'email/welcome.html',
+            username=user.username,
+            login_url=url_for('login', _external=True)
+        )
+        
+        flash('You have confirmed your account. Thanks!', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            if user.is_verified:
+                flash('This account is already verified. Please login.', 'info')
+                return redirect(url_for('login'))
+            
+            token = ts.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
+            verification_url = url_for('verify_email', token=token, _external=True)
+            
+            email_sent = send_email(
+                "Please confirm your email - ShareXpress",
+                [email],
+                'email/verify_email.html',
+                verification_url=verification_url,
+                username=user.username
+            )
+            
+            if email_sent:
+                flash('A new verification email has been sent.', 'info')
+            else:
+                flash('Could not send email. [DEV MODE] Link printed to console.', 'warning')
+                
+        else:
+            # We don't want to reveal if an email exists, but for resend it's usually fine
+            flash('No account found with that email.', 'error')
+            
+        return redirect(url_for('login'))
+    
+    return render_template('resend_verification.html')
+
+# Login Route
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
+        identity = request.form.get('username')
         password = request.form.get('password')
 
-        if not username or not password:
+        if not identity or not password:
             flash('Please provide both username and password!', 'error')
             return render_template('login.html')
 
-        # Find user
-        user = User.query.filter_by(username=username).first()
+        # Find user by username OR email
+        user = User.query.filter((User.username == identity) | (User.email == identity)).first()
 
         if user and user.check_password(password):
+            if not user.is_verified:
+                flash('Please verify your email address first!', 'warning')
+                return render_template('login.html')
+                
             session['user_id'] = user.id
             session['username'] = user.username
-            flash('Login successful!', 'success')
-            return redirect(url_for('dashboard') + '#upload')  # ← ADD #upload anchor
+            flash(f'Welcome back, {user.username}!', 'success')
+            return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password!', 'error')
             return render_template('login.html')
 
     return render_template('login.html')
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            token = ts.dumps(email, salt=app.config['SECURITY_PASSWORD_SALT'])
+            reset_url = url_for('reset_password', token=token, _external=True)
+            
+            email_sent = send_email(
+                "Password Reset Request - ShareXpress",
+                [email],
+                'email/reset_password.html',
+                reset_url=reset_url,
+                username=user.username
+            )
+            
+            if email_sent:
+                flash('If an account exists with that email, a password reset link has been sent.', 'info')
+            else:
+                flash('Error sending reset email. [DEV MODE] Link printed to console.', 'warning')
+        else:
+            # Generic message for security
+            flash('If an account exists with that email, a password reset link has been sent.', 'info')
+            
+        return redirect(url_for('login'))
+
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        email = ts.loads(token, salt=app.config['SECURITY_PASSWORD_SALT'], max_age=3600) # 1 hour
+    except:
+        flash('The reset link is invalid or has expired.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    user = User.query.filter_by(email=email).first_or_404()
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirmation = request.form.get('confirmation')
+
+        if not password:
+            flash('Password is required!', 'error')
+            return render_template('reset_password.html', token=token)
+
+        if password != confirmation:
+            flash('Passwords do not match!', 'error')
+            return render_template('reset_password.html', token=token)
+
+        user.set_password(password)
+        db.session.commit()
+        flash('Your password has been reset. You can now login.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
 
 # Logout Route
 @app.route('/logout')

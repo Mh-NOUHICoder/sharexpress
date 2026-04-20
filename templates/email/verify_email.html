@@ -1,0 +1,14 @@
+{% extends "email/base_email.html" %}
+
+{% block content %}
+<h2>Welcome to ShareXpress!</h2>
+<p>Hi <strong>{{ username }}</strong>,</p>
+<p>We're excited to have you on board. To start sharing files securely, please verify your email address by clicking the button below:</p>
+<div style="text-align: center;">
+    <a href="{{ verification_url }}" class="button">Verify Email Address</a>
+</div>
+<p>Or copy and paste this link into your browser:</p>
+<p class="link-text">{{ verification_url }}</p>
+<p>If you did not create an account with ShareXpress, you can safely ignore this email.</p>
+<p>Best regards,<br>The ShareXpress Team</p>
+{% endblock %}

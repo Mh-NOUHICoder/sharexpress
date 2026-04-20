@@ -16,7 +16,10 @@
                                placeholder="Enter your username">
                     </div>
                     <div class="mb-4">
-                        <label for="password" class="form-label">Password</label>
+                        <div class="d-flex justify-content-between">
+                            <label for="password" class="form-label">Password</label>
+                            <a href="{{ url_for('forgot_password') }}" class="text-decoration-none small">Forgot Password?</a>
+                        </div>
                         <input type="password" class="form-control" id="password" name="password" required
                                placeholder="Enter your password">
                     </div>
@@ -25,8 +28,11 @@
                     </button>
                 </form>
                 <div class="text-center mt-3">
-                    <p class="mb-0">Don't have an account?
+                    <p class="mb-1">Don't have an account? 
                         <a href="{{ url_for('register') }}" class="text-decoration-none">Register here</a>
+                    </p>
+                    <p class="mb-0">
+                        <a href="{{ url_for('resend_verification') }}" class="text-decoration-none small text-muted">Haven't received verification email?</a>
                     </p>
                 </div>
             </div>

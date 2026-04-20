@@ -1,0 +1,13 @@
+{% extends "email/base_email.html" %}
+
+{% block content %}
+<h2>Account Verified!</h2>
+<p>Hi <strong>{{ username }}</strong>,</p>
+<p>Great news! Your ShareXpress account has been successfully verified.</p>
+<p>You can now log in and start sharing files securely with anyone, anywhere.</p>
+<div style="text-align: center;">
+    <a href="{{ login_url }}" class="button">Log In Now</a>
+</div>
+<p>Thank you for choosing ShareXpress!</p>
+<p>Best regards,<br>The ShareXpress Team</p>
+{% endblock %}

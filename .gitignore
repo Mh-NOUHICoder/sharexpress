@@ -7,3 +7,4 @@ instance/
 .env
 uploads/
 .DS_Store
+mailtrap_token.txt
